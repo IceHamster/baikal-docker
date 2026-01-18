@@ -22,6 +22,7 @@ RUN apk add --no-cache \
     php85-ctype \
     php85-dom \
     php85-xml \
+    php85-xmlreader \
     php85-xmlwriter \
     php85-simplexml \
     php85-tokenizer \
