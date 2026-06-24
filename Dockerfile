@@ -1,4 +1,4 @@
-FROM alpine:3.23@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40 AS builder
+FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS builder
 
 # renovate: datasource=github-releases packageName=sabre-io/Baikal
 ENV BAIKAL_VERSION=0.11.1
@@ -8,7 +8,7 @@ RUN apk add --no-cache unzip curl \
     && unzip -q baikal.zip \
     && rm baikal.zip
 
-FROM alpine:3.23@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40
+FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
 # Install Nginx and PHP (Removed Supervisor)
 RUN apk add --no-cache \
