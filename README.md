@@ -82,6 +82,10 @@ The health check requests the container-local `/health` endpoint through Nginx a
 
 CI builds and smoke-tests the ARM64 image before publishing. Weekly and manually triggered builds bypass the build cache to refresh Alpine packages, even when the base-image digest has not changed. Workflow changes also run CI.
 
+Builds from `main` publish both the Baikal version tag and `latest`. The separate **Clean up old container images** workflow runs weekly and removes untagged images older than 30 days. It preserves tagged releases and the platform manifests and attestations they reference. Publishing and cleanup share a concurrency lock to prevent overlapping registry changes.
+
+For a cleanup preview, run that workflow manually with `dry_run` enabled (the default). Disable it to perform the cleanup. Scheduled runs perform the cleanup automatically. Images pinned only by an old, untagged digest are subject to this 30-day retention policy.
+
 To run the same smoke tests locally (Docker and Python 3 required):
 
 ```bash

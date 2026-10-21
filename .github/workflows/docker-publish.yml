@@ -13,6 +13,11 @@ on:
     - cron: '17 4 * * 3'
   workflow_dispatch:
 
+# Publishing and retention share this lock so cleanup cannot race a push.
+concurrency:
+  group: ghcr-${{ github.repository }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -53,6 +58,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.versions.outputs.baikal }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build image for runtime tests
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7

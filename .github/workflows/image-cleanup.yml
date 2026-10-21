@@ -1,0 +1,36 @@
+name: Clean up old container images
+
+on:
+  schedule:
+    - cron: '17 5 * * 3'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Preview eligible image deletions without deleting them
+        type: boolean
+        default: true
+
+# Use the same lock as docker-publish.yml, including for manual runs.
+concurrency:
+  group: ghcr-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Remove unreferenced images older than 30 days
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        with:
+          owner: ${{ github.repository_owner }}
+          package: baikal-docker
+          delete-untagged: true
+          older-than: 30 days
+          # Match every tag, but not sha256: digests. A wildcard also matches
+          # digests in this action and would prevent all cleanup.
+          use-regex: true
+          exclude-tags: '^[^:]+$'
+          validate: true
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
