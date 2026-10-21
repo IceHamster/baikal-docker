@@ -1,7 +1,7 @@
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS builder
 
 # renovate: datasource=github-releases packageName=sabre-io/Baikal
-ENV BAIKAL_VERSION=0.12.1
+ENV BAIKAL_VERSION=0.13.0
 WORKDIR /app
 RUN apk add --no-cache unzip curl \
     && curl -L -o baikal.zip https://github.com/sabre-io/Baikal/releases/download/$BAIKAL_VERSION/baikal-$BAIKAL_VERSION.zip \
