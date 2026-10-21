@@ -1,64 +1,59 @@
+# syntax=docker/dockerfile:1
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS builder
 
-# renovate: datasource=github-releases packageName=sabre-io/Baikal
-ENV BAIKAL_VERSION=0.13.0
 WORKDIR /app
-RUN apk add --no-cache unzip curl \
-    && curl -L -o baikal.zip https://github.com/sabre-io/Baikal/releases/download/$BAIKAL_VERSION/baikal-$BAIKAL_VERSION.zip \
+RUN apk add --no-cache curl unzip
+
+# Renovate updates the release version and archive checksum as one dependency.
+# renovate: datasource=github-release-attachments packageName=sabre-io/Baikal
+ARG BAIKAL_VERSION=0.13.0
+ARG BAIKAL_SHA256=81e74df123230e863f608d228fdd7b9a1a788f60b04d37e6973c302192e83f32
+RUN curl --fail --silent --show-error --location --retry 3 --max-time 120 \
+        --output baikal.zip "https://github.com/sabre-io/Baikal/releases/download/${BAIKAL_VERSION}/baikal-${BAIKAL_VERSION}.zip" \
+    && printf '%s  %s\n' "$BAIKAL_SHA256" baikal.zip | sha256sum -c - \
     && unzip -q baikal.zip \
     && rm baikal.zip
 
-FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS runtime
 
-# Install Nginx and PHP (Removed Supervisor)
 RUN apk add --no-cache \
     nginx \
     php85 \
-    php85-fpm \
     php85-common \
-    php85-openssl \
-    php85-curl \
-    php85-mbstring \
     php85-ctype \
+    php85-curl \
     php85-dom \
-    php85-xml \
-    php85-xmlreader \
-    php85-xmlwriter \
-    php85-simplexml \
-    php85-tokenizer \
-    php85-session \
+    php85-fpm \
+    php85-mbstring \
+    php85-openssl \
     php85-pdo \
     php85-pdo_pgsql \
     php85-pgsql \
-    php85-zlib
+    php85-session \
+    php85-simplexml \
+    php85-tokenizer \
+    php85-xml \
+    php85-xmlreader \
+    php85-xmlwriter \
+    php85-zlib \
+    tini
 
-# Create Directories & User Setup
+# Application code stays owned by root. Only data and runtime paths are writable
+# by the web workers; mounted data directories are also prepared at startup.
+COPY --from=builder --chown=root:root /app/baikal /var/www/baikal
 RUN mkdir -p /var/www/baikal/Specific /var/www/baikal/config /run/nginx /run/php \
-    && chown -R nginx:nginx /var/www/baikal /var/log/nginx /run/nginx /run/php
+    && chown -R nginx:nginx /var/www/baikal/Specific /var/www/baikal/config \
+        /var/log/nginx /run/nginx /run/php
 
-# Configure PHP-FPM (Socket Mode)
-RUN sed -i 's/listen = 127.0.0.1:9000/listen = \/run\/php\/php-fpm.sock/g' /etc/php85/php-fpm.d/www.conf \
-    && sed -i 's/^user = nobody/user = nginx/g' /etc/php85/php-fpm.d/www.conf \
-    && sed -i 's/^group = nobody/group = nginx/g' /etc/php85/php-fpm.d/www.conf \
-    && sed -i 's/;listen.owner = nobody/listen.owner = nginx/g' /etc/php85/php-fpm.d/www.conf \
-    && sed -i 's/;listen.group = nobody/listen.group = nginx/g' /etc/php85/php-fpm.d/www.conf \
-    && sed -i 's/;listen.mode = 0660/listen.mode = 0660/g' /etc/php85/php-fpm.d/www.conf \
-    && sed -i 's/^error_log = .*/error_log = \/dev\/stderr/' /etc/php85/php-fpm.conf
-
-# Copy Application Code
-COPY --from=builder --chown=nginx:nginx /app/baikal /var/www/baikal
-
-# Copy Configurations
 COPY files/nginx.conf /etc/nginx/http.d/default.conf
-COPY files/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY files/php-fpm.conf /etc/php85/php-fpm.d/zz-docker.conf
+COPY --chmod=0755 files/entrypoint.sh files/healthcheck.sh /usr/local/bin/
 
-# Make entrypoint executable
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# Persist Data
 VOLUME ["/var/www/baikal/Specific", "/var/www/baikal/config"]
-
 EXPOSE 80
 
-# The script now acts as the process manager
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["/usr/local/bin/healthcheck.sh"]
+
+# Tini forwards signals to the wrapper and reaps orphaned service workers.
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]
