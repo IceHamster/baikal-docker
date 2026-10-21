@@ -6,14 +6,15 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Update _VERSION variables in Dockerfiles",
+      "description": "Update Baikal's release version and ZIP SHA-256 together",
       "managerFilePatterns": [
         "/(^|/|\\.)Dockerfile$/",
         "/(^|/)Dockerfile\\.[^/]*$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z-]+?)(?: depName=(?<depName>.+?))? packageName=(?<packageName>.+?)(?: versioning=(?<versioning>[a-z-]+?))?(?: extractVersion=(?<extractVersion>.+?))?\\s(?:ENV|ARG) .+?_VERSION=(?<currentValue>.+?)\\s"
-      ]
+        "# renovate: datasource=(?<datasource>github-release-attachments) packageName=(?<packageName>[^\\s]+)\\r?\\nARG BAIKAL_VERSION=(?<currentValue>[^\\s]+)\\r?\\nARG BAIKAL_SHA256=(?<currentDigest>[a-f0-9]{64})"
+      ],
+      "versioningTemplate": "semver"
     }
   ]
 }
